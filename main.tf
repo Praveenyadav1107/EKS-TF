@@ -300,8 +300,8 @@ resource "aws_eks_node_group" "main" {
   node_role_arn   = aws_iam_role.eks_nodes.arn
   subnet_ids      = aws_subnet.private[*].id
   
-  # Instructs AWS to automatically fetch the correct, fully-patched AL2023 EKS image for v1.34
-  ami_type        = "AL2023_x86_64" 
+  # Instructs AWS to automatically fetch the correct AL2023 EKS image
+  ami_type        = "AL2023_x86_64_STANDARD" 
   instance_types  = ["t3.medium"]
 
   scaling_config {
