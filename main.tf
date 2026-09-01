@@ -287,10 +287,10 @@ resource "aws_eks_cluster" "main" {
 
 resource "aws_launch_template" "eks_custom_ami" {
   name_prefix   = "eks-custom-ami-"
-  image_id      = "ami-0b06ddf510ef8eb45" # Requested Custom AMI
+  image_id      = "ami-0b06ddf510ef8eb45" 
   instance_type = "t3.medium"
 
-  # Standard EKS Bootstrap script required when using CUSTOM AMI types
+  # Pass the Cluster CA and Endpoint directly to bypass the need for IAM DescribeCluster permissions
   user_data = base64encode(<<-EOF
     MIME-Version: 1.0
     Content-Type: multipart/mixed; boundary="==MYBOUNDARY=="
@@ -299,7 +299,9 @@ resource "aws_launch_template" "eks_custom_ami" {
     Content-Type: text/x-shellscript; charset="us-ascii"
 
     #!/bin/bash
-    /etc/eks/bootstrap.sh ${aws_eks_cluster.main.name}
+    /etc/eks/bootstrap.sh ${aws_eks_cluster.main.name} \
+      --b64-cluster-ca '${aws_eks_cluster.main.certificate_authority[0].data}' \
+      --apiserver-endpoint '${aws_eks_cluster.main.endpoint}'
 
     --==MYBOUNDARY==--
   EOF
