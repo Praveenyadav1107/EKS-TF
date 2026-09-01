@@ -195,7 +195,7 @@ data "aws_ami" "amazon_linux_2023" {
 }
 
 resource "aws_instance" "bastion" {
-  count                  = 3
+  count                  = 1
   ami                    = data.aws_ami.amazon_linux_2023.id
   instance_type          = "t3.micro"
   subnet_id              = aws_subnet.public[count.index].id
