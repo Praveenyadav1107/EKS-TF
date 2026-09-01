@@ -165,6 +165,14 @@ resource "aws_security_group" "eks_control_plane" {
     security_groups = [aws_security_group.bastion.id]
   }
 
+  ingress {
+    description = "Allow HTTPS from inside the VPC (Worker Nodes)"
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = [local.vpc_cidr]
+  }
+
   egress {
     from_port   = 0
     to_port     = 0
@@ -192,6 +200,7 @@ resource "aws_instance" "bastion" {
   instance_type          = "t3.micro"
   subnet_id              = aws_subnet.public[count.index].id
   vpc_security_group_ids = [aws_security_group.bastion.id]
+  key_name               = "test-keypair" # <--- ADD THIS LINE
 
   tags = {
     Name = "bastion-host-${count.index + 1}"
