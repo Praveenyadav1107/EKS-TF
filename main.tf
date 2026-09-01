@@ -290,24 +290,27 @@ resource "aws_launch_template" "eks_custom_ami" {
   image_id      = "ami-0b06ddf510ef8eb45" 
   instance_type = "t3.medium"
 
-  # Pass the Cluster CA and Endpoint directly to bypass the need for IAM DescribeCluster permissions
+  # AL2023 requires application/node.eks.aws YAML configuration instead of bootstrap.sh
   user_data = base64encode(<<-EOF
-    MIME-Version: 1.0
-    Content-Type: multipart/mixed; boundary="==MYBOUNDARY=="
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="==MYBOUNDARY=="
 
-    --==MYBOUNDARY==
-    Content-Type: text/x-shellscript; charset="us-ascii"
+--==MYBOUNDARY==
+Content-Type: application/node.eks.aws
 
-    #!/bin/bash
-    /etc/eks/bootstrap.sh ${aws_eks_cluster.main.name} \
-      --b64-cluster-ca '${aws_eks_cluster.main.certificate_authority[0].data}' \
-      --apiserver-endpoint '${aws_eks_cluster.main.endpoint}'
+---
+apiVersion: node.eks.aws/v1alpha1
+kind: NodeConfig
+spec:
+  cluster:
+    name: ${aws_eks_cluster.main.name}
+    apiServerEndpoint: ${aws_eks_cluster.main.endpoint}
+    certificateAuthority: ${aws_eks_cluster.main.certificate_authority[0].data}
 
-    --==MYBOUNDARY==--
+--==MYBOUNDARY==--
   EOF
   )
 }
-
 resource "aws_eks_node_group" "main" {
   cluster_name    = aws_eks_cluster.main.name
   node_group_name = "custom-ami-nodes"
