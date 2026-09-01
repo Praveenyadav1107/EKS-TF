@@ -1,10 +1,16 @@
-name: 'Terraform Direct Apply'
+name: 'Terraform Manual Execution'
 
 on:
-  workflow_dispatch: # This enables the manual "Run workflow" button in GitHub Actions
-  push:
-    branches:
-      - main # Also runs automatically if you push directly to main
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'Choose to apply or destroy resources'
+        required: true
+        default: 'apply'
+        type: choice
+        options:
+          - apply
+          - destroy
 
 env:
   AWS_REGION: 'ap-south-1'
@@ -12,7 +18,7 @@ env:
 
 jobs:
   terraform:
-    name: 'Terraform Plan and Apply'
+    name: 'Terraform Execution'
     runs-on: ubuntu-latest
     
     defaults:
@@ -38,17 +44,21 @@ jobs:
       - name: Terraform Init
         run: terraform init
 
-      # Formats code without failing the pipeline if spacing is slightly off
-      #- name: Terraform Format
-       # run: terraform fmt 
-
       - name: Terraform Validate
         run: terraform validate
 
+      # Runs plan ONLY if 'apply' is manually selected
       - name: Terraform Plan
+        if: github.event.inputs.action == 'apply'
         id: plan
         run: terraform plan -out=tfplan
 
-      # This step no longer has an 'if' condition. It will ALWAYS run and apply the resources.
+      # Runs apply ONLY if 'apply' is manually selected
       - name: Terraform Apply
+        if: github.event.inputs.action == 'apply'
         run: terraform apply -auto-approve tfplan
+
+      # Runs destroy ONLY if 'destroy' is manually selected
+      - name: Terraform Destroy
+        if: github.event.inputs.action == 'destroy'
+        run: terraform destroy -auto-approve
