@@ -7,7 +7,7 @@ terraform {
     key            = "eks/terraform.tfstate"
     region         = "ap-south-1"
     encrypt        = true
-    dynamodb_table = "terraform-lock-table" # Ensure this DynamoDB table exists with Partition key 'LockID'
+    dynamodb_table = "test-tf-lock-table" # Ensure this DynamoDB table exists with Partition key 'LockID'
   }
 
   required_providers {
