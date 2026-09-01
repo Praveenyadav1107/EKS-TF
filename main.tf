@@ -299,14 +299,28 @@ resource "aws_launch_template" "eks_custom_ami" {
   image_id      = "ami-0b06ddf510ef8eb45" 
   instance_type = "t3.medium"
 
-  # AL2023 requires application/node.eks.aws YAML configuration instead of bootstrap.sh
+  # A universal script that detects the OS and applies the correct EKS bootstrap method
   user_data = base64encode(<<-EOF
 MIME-Version: 1.0
 Content-Type: multipart/mixed; boundary="==MYBOUNDARY=="
 
 --==MYBOUNDARY==
-Content-Type: application/node.eks.aws
+Content-Type: text/x-shellscript; charset="us-ascii"
 
+#!/bin/bash
+set -ex
+
+# Check if this is an older Amazon Linux 2 or Ubuntu AMI
+if [ -f /etc/eks/bootstrap.sh ]; then
+  echo "Found AL2/Ubuntu. Running bootstrap.sh..."
+  /etc/eks/bootstrap.sh ${aws_eks_cluster.main.name} \
+    --b64-cluster-ca '${aws_eks_cluster.main.certificate_authority[0].data}' \
+    --apiserver-endpoint '${aws_eks_cluster.main.endpoint}'
+
+# Check if this is a newer Amazon Linux 2023 AMI
+elif command -v nodeadm &> /dev/null; then
+  echo "Found AL2023. Running nodeadm..."
+  cat << 'YAML' > /tmp/nodeconfig.yaml
 ---
 apiVersion: node.eks.aws/v1alpha1
 kind: NodeConfig
@@ -315,7 +329,12 @@ spec:
     name: ${aws_eks_cluster.main.name}
     apiServerEndpoint: ${aws_eks_cluster.main.endpoint}
     certificateAuthority: ${aws_eks_cluster.main.certificate_authority[0].data}
+YAML
+  nodeadm init -c /tmp/nodeconfig.yaml
 
+else
+  echo "ERROR: Unsupported AMI. This image is missing EKS binaries."
+fi
 --==MYBOUNDARY==--
   EOF
   )
