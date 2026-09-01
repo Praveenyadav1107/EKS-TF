@@ -182,7 +182,7 @@ resource "aws_security_group" "eks_control_plane" {
 }
 
 # ==========================================
-# 3. Bastion Hosts (3 instances in Public Subnets)
+# 3. Bastion Hosts
 # ==========================================
 
 data "aws_ami" "amazon_linux_2023" {
@@ -200,7 +200,7 @@ resource "aws_instance" "bastion" {
   instance_type          = "t3.micro"
   subnet_id              = aws_subnet.public[count.index].id
   vpc_security_group_ids = [aws_security_group.bastion.id]
-  key_name               = "test-keypair" # <--- ADD THIS LINE
+  key_name               = "test-keypair" 
 
   tags = {
     Name = "bastion-host-${count.index + 1}"
@@ -291,67 +291,19 @@ resource "aws_eks_cluster" "main" {
 }
 
 # ==========================================
-# 6. EKS Node Group & Custom AMI via ASG Launch Template
+# 6. EKS Node Group (Using Official EKS-Optimized AMI)
 # ==========================================
 
-resource "aws_launch_template" "eks_custom_ami" {
-  name_prefix   = "eks-custom-ami-"
-  image_id      = "ami-0b06ddf510ef8eb45" 
-  instance_type = "t3.medium"
-
-  # A universal script that detects the OS and applies the correct EKS bootstrap method
-  user_data = base64encode(<<-EOF
-MIME-Version: 1.0
-Content-Type: multipart/mixed; boundary="==MYBOUNDARY=="
-
---==MYBOUNDARY==
-Content-Type: text/x-shellscript; charset="us-ascii"
-
-#!/bin/bash
-set -ex
-
-# Check if this is an older Amazon Linux 2 or Ubuntu AMI
-if [ -f /etc/eks/bootstrap.sh ]; then
-  echo "Found AL2/Ubuntu. Running bootstrap.sh..."
-  /etc/eks/bootstrap.sh ${aws_eks_cluster.main.name} \
-    --b64-cluster-ca '${aws_eks_cluster.main.certificate_authority[0].data}' \
-    --apiserver-endpoint '${aws_eks_cluster.main.endpoint}'
-
-# Check if this is a newer Amazon Linux 2023 AMI
-elif command -v nodeadm &> /dev/null; then
-  echo "Found AL2023. Running nodeadm..."
-  cat << 'YAML' > /tmp/nodeconfig.yaml
----
-apiVersion: node.eks.aws/v1alpha1
-kind: NodeConfig
-spec:
-  cluster:
-    name: ${aws_eks_cluster.main.name}
-    apiServerEndpoint: ${aws_eks_cluster.main.endpoint}
-    certificateAuthority: ${aws_eks_cluster.main.certificate_authority[0].data}
-YAML
-  nodeadm init -c /tmp/nodeconfig.yaml
-
-else
-  echo "ERROR: Unsupported AMI. This image is missing EKS binaries."
-fi
---==MYBOUNDARY==--
-  EOF
-  )
-}
 resource "aws_eks_node_group" "main" {
   cluster_name    = aws_eks_cluster.main.name
-  node_group_name = "custom-ami-nodes"
+  node_group_name = "eks-optimized-nodes"
   node_role_arn   = aws_iam_role.eks_nodes.arn
   subnet_ids      = aws_subnet.private[*].id
-  ami_type        = "CUSTOM" 
+  
+  # Instructs AWS to automatically fetch the correct, fully-patched AL2023 EKS image for v1.34
+  ami_type        = "AL2023_x86_64" 
+  instance_types  = ["t3.medium"]
 
-  launch_template {
-    id      = aws_launch_template.eks_custom_ami.id
-    version = aws_launch_template.eks_custom_ami.latest_version
-  }
-
-  # This configuration natively creates the underlying Auto Scaling Group (ASG)
   scaling_config {
     desired_size = 3
     max_size     = 5
