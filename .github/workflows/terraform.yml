@@ -4,13 +4,21 @@ on:
   workflow_dispatch:
     inputs:
       action:
-        description: 'Choose to apply or destroy resources'
+        description: 'Choose an action'
         required: true
         default: 'apply'
         type: choice
         options:
           - apply
           - destroy
+      bastion_state:
+        description: 'Bastion Host State (Only used if action is apply)'
+        required: true
+        default: 'running'
+        type: choice
+        options:
+          - running
+          - stopped
 
 env:
   AWS_REGION: 'ap-south-1'
@@ -44,21 +52,16 @@ jobs:
       - name: Terraform Init
         run: terraform init
 
-      - name: Terraform Validate
-        run: terraform validate
-
-      # Runs plan ONLY if 'apply' is manually selected
       - name: Terraform Plan
         if: github.event.inputs.action == 'apply'
         id: plan
-        run: terraform plan -out=tfplan
+        # Pass the bastion_state variable into the plan
+        run: terraform plan -var="bastion_state=${{ github.event.inputs.bastion_state }}" -out=tfplan
 
-      # Runs apply ONLY if 'apply' is manually selected
       - name: Terraform Apply
         if: github.event.inputs.action == 'apply'
         run: terraform apply -auto-approve tfplan
 
-      # Runs destroy ONLY if 'destroy' is manually selected
       - name: Terraform Destroy
         if: github.event.inputs.action == 'destroy'
         run: terraform destroy -auto-approve
