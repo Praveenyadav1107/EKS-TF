@@ -197,10 +197,15 @@ data "aws_ami" "amazon_linux_2023" {
 resource "aws_instance" "bastion" {
   count                  = 1
   ami                    = data.aws_ami.amazon_linux_2023.id
-  instance_type          = "t3.micro"
+  instance_type          = "t3.medium"
   subnet_id              = aws_subnet.public[count.index].id
   vpc_security_group_ids = [aws_security_group.bastion.id]
   key_name               = "test-keypair" 
+
+  root_block_device {
+    volume_size = 60
+    volume_type = "gp3"
+  }
 
   tags = {
     Name = "bastion-host-${count.index + 1}"
@@ -317,9 +322,9 @@ resource "aws_eks_node_group" "main" {
   instance_types  = ["t3.medium"]
 
   scaling_config {
-    desired_size = 2
-    max_size     = 3
-    min_size     = 2
+    desired_size = 0
+    max_size     = 1
+    min_size     = 0
   }
 
   depends_on = [
