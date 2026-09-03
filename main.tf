@@ -207,6 +207,18 @@ resource "aws_instance" "bastion" {
   }
 }
 
+variable "bastion_state" {
+  description = "Target state for the Bastion Host (running or stopped)"
+  type        = string
+  default     = "running"
+}
+
+resource "aws_ec2_instance_state" "bastion" {
+  count       = 1
+  instance_id = aws_instance.bastion[count.index].id
+  state       = var.bastion_state
+}
+
 # ==========================================
 # 4. IAM Roles for EKS
 # ==========================================
@@ -305,9 +317,9 @@ resource "aws_eks_node_group" "main" {
   instance_types  = ["t3.medium"]
 
   scaling_config {
-    desired_size = 0
-    max_size     = 1
-    min_size     = 0
+    desired_size = 2
+    max_size     = 3
+    min_size     = 2
   }
 
   depends_on = [
