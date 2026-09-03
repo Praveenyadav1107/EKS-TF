@@ -144,6 +144,14 @@ resource "aws_security_group" "bastion" {
     cidr_blocks = ["0.0.0.0/0"] # Restrict this to your admin IP range in production
   }
 
+  ingress {
+    description = "Jenkins Web Interface"
+    from_port   = 8080
+    to_port     = 8080
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"] # Restrict this to your specific IP for security
+  }
+
   egress {
     from_port   = 0
     to_port     = 0
