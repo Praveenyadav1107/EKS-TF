@@ -215,6 +215,36 @@ resource "aws_instance" "bastion" {
     volume_type = "gp3"
   }
 
+  # Automates the installation of kubectl, Java, and Jenkins on boot
+  user_data = <<-EOF
+    #!/bin/bash
+    set -ex
+
+    # 1. Install kubectl
+    curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+    chmod +x kubectl
+    mv kubectl /usr/local/bin/
+
+    # 2. Install Java (Jenkins requires Java to run on Amazon Linux 2023)
+    dnf install java-17-amazon-corretto -y
+
+    # 3. Install Jenkins
+    wget -O /etc/yum.repos.d/jenkins.repo https://pkg.jenkins.io/redhat-stable/jenkins.repo
+    rpm --import https://pkg.jenkins.io/redhat-stable/jenkins.io-2023.key
+    dnf install jenkins -y
+
+    systemctl enable jenkins
+    systemctl start jenkins
+  EOF
+
+  # The magic block that prevents Terraform from destroying the instance
+  lifecycle {
+    ignore_changes = [
+      ami,
+      user_data
+    ]
+  }
+
   tags = {
     Name = "bastion-host-${count.index + 1}"
   }
